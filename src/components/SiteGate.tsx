@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-const GATE_USER = "jankaam";
-const GATE_PASS = "surat2026";
+const GATE_USER = "MehulPatel";
+const GATE_PASS = "DharmsLondon";
 
 export default function SiteGate({ children }: { children: React.ReactNode }) {
   const [unlocked, setUnlocked] = useState(false);
