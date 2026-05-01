@@ -26,6 +26,7 @@ export const tokenStore = {
 
 export interface ApiUser {
   id: string;
+  username?: string; // 👈 backend returns this
   phone: string;
   name?: string;
   village?: string;
@@ -111,10 +112,14 @@ export const api = {
     });
   },
 
+  // 🔥 FIXED LOGIN (IMPORTANT)
   login(body: { phone: string; password: string }) {
     return request<AuthResponse>("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        username: body.phone, // 👈 backend expects username
+        password: body.password,
+      }),
     });
   },
 
@@ -125,8 +130,12 @@ export const api = {
     village?: string;
     tier?: "bronze" | "silver" | "gold";
   }) {
+    console.log("Attempting login with phone:", body);
     try {
-      return await api.login(body);
+      const result = await api.login(body);
+      console.log("Login successful:", result);
+      return result;
+
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 404)) {
         return await api.signup(body);
