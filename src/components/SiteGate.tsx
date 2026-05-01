@@ -17,7 +17,10 @@ export default function SiteGate({ children }: { children: React.ReactNode }) {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (username.trim().toLowerCase() === GATE_USER && password === GATE_PASS) {
+    if (
+      username.trim().toLowerCase() === GATE_USER.toLowerCase() &&
+      password === GATE_PASS
+    ) {
       setError(null);
       setUnlocked(true);
     } else {
