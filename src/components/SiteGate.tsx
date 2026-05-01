@@ -1,12 +1,10 @@
 import { useState, FormEvent } from "react";
-import { Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Lock, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-
-const GATE_USER = "MehulPatel";
-const GATE_PASS = "DharmsLondon";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SiteGate({ children }: { children: React.ReactNode }) {
   const [unlocked, setUnlocked] = useState(false);
@@ -14,31 +12,45 @@ export default function SiteGate({ children }: { children: React.ReactNode }) {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false); // ✅ added
 
-  const handleSubmit = (e: FormEvent) => {
+  const { signInWithPassword } = useAuth();
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (
-      username.trim().toLowerCase() === GATE_USER.toLowerCase() &&
-      password === GATE_PASS
-    ) {
-      setError(null);
+    setError(null);
+    setLoading(true); // ✅ start loading
+
+    try {
+      await signInWithPassword({
+        phone: username,
+        password,
+      });
+
       setUnlocked(true);
-    } else {
-      setError("Incorrect username or password.");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Incorrect username or password.");
+      }
+    } finally {
+      setLoading(false); // ✅ stop loading
     }
   };
 
   return (
     <>
-      {/* Site content — blurred & non-interactive while gated */}
       <div
         aria-hidden={!unlocked}
         className={cn(
           "transition-all duration-500",
-          !unlocked && "blur-xl scale-[1.02] pointer-events-none select-none overflow-hidden h-screen"
+          !unlocked &&
+            "blur-xl scale-[1.02] pointer-events-none select-none overflow-hidden h-screen"
         )}
-        // prevent scroll while gated
-        style={!unlocked ? { maxHeight: "100vh", overflow: "hidden" } : undefined}
+        style={
+          !unlocked ? { maxHeight: "100vh", overflow: "hidden" } : undefined
+        }
       >
         {children}
       </div>
@@ -50,10 +62,8 @@ export default function SiteGate({ children }: { children: React.ReactNode }) {
           aria-labelledby="gate-title"
           className="fixed inset-0 z-[100] flex items-center justify-center px-4"
         >
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-background/70 backdrop-blur-md" />
 
-          {/* Card */}
           <div className="relative w-full max-w-md rounded-3xl bg-card border border-border shadow-elegant p-8 sm:p-10">
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-2xl bg-accent/15 text-accent flex items-center justify-center">
@@ -63,7 +73,10 @@ export default function SiteGate({ children }: { children: React.ReactNode }) {
                 <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-accent">
                   Phase 1 · Private preview
                 </p>
-                <h2 id="gate-title" className="font-display text-xl font-semibold tracking-tight mt-0.5">
+                <h2
+                  id="gate-title"
+                  className="font-display text-xl font-semibold tracking-tight mt-0.5"
+                >
                   Jan Kaam — early access
                 </h2>
               </div>
@@ -75,7 +88,10 @@ export default function SiteGate({ children }: { children: React.ReactNode }) {
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="gate-user" className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                <Label
+                  htmlFor="gate-user"
+                  className="text-xs uppercase tracking-[0.14em] text-muted-foreground"
+                >
                   Username
                 </Label>
                 <Input
@@ -87,11 +103,15 @@ export default function SiteGate({ children }: { children: React.ReactNode }) {
                   onChange={(e) => setUsername(e.target.value)}
                   className="h-11"
                   required
+                  disabled={loading} // ✅ disable input
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="gate-pass" className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                <Label
+                  htmlFor="gate-pass"
+                  className="text-xs uppercase tracking-[0.14em] text-muted-foreground"
+                >
                   Password
                 </Label>
                 <div className="relative">
@@ -103,14 +123,20 @@ export default function SiteGate({ children }: { children: React.ReactNode }) {
                     onChange={(e) => setPassword(e.target.value)}
                     className="h-11 pr-11"
                     required
+                    disabled={loading} // ✅ disable input
                   />
                   <button
                     type="button"
                     onClick={() => setShowPass((v) => !v)}
                     aria-label={showPass ? "Hide password" : "Show password"}
                     className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    disabled={loading} // ✅ disable toggle
                   >
-                    {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPass ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -121,9 +147,23 @@ export default function SiteGate({ children }: { children: React.ReactNode }) {
                 </p>
               )}
 
-              <Button type="submit" size="lg" className="w-full h-12 mt-2">
-                Unlock site
-                <ArrowRight className="h-4 w-4" />
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full h-12 mt-2"
+                disabled={loading} // ✅ disable button
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    Unlock site
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </>
+                )}
               </Button>
             </form>
 

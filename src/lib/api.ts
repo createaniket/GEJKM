@@ -1,6 +1,3 @@
-// Backend API client for Jan Kaam (Node/Express + MongoDB)
-// Base URL is configurable via VITE_API_BASE_URL.
-
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ||
   "https://srtcntbe.onrender.com";
@@ -18,16 +15,12 @@ export const tokenStore = {
   set(token: string) {
     try {
       localStorage.setItem(TOKEN_KEY, token);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   },
   clear() {
     try {
       localStorage.removeItem(TOKEN_KEY);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */}
   },
 };
 
@@ -48,6 +41,7 @@ export interface AuthResponse {
 export class ApiError extends Error {
   status: number;
   payload: unknown;
+
   constructor(message: string, status: number, payload: unknown) {
     super(message);
     this.status = status;
@@ -60,34 +54,46 @@ async function request<T>(
   init: RequestInit & { auth?: boolean } = {}
 ): Promise<T> {
   const headers = new Headers(init.headers);
+
   headers.set("Content-Type", "application/json");
   headers.set("Accept", "application/json");
-  if (init.auth) {
-    const t = tokenStore.get();
-    if (t) headers.set("Authorization", `Bearer ${t}`);
+
+  const token = tokenStore.get();
+  if (init.auth && token) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers,
+  });
+
   const text = await res.text();
+
   let data: unknown = null;
+
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
     data = text;
   }
+
   if (!res.ok) {
-    const msg =
-      (data as { error?: { message?: string } | string } | null)?.error &&
-      (typeof (data as { error: unknown }).error === "string"
-        ? (data as { error: string }).error
-        : ((data as { error: { message?: string } }).error.message ??
-          `Request failed (${res.status})`));
-    throw new ApiError(
-      typeof msg === "string" ? msg : `Request failed (${res.status})`,
-      res.status,
-      data
-    );
+    let message = `Request failed (${res.status})`;
+
+    if (typeof data === "object" && data !== null) {
+      const d = data as { error?: string | { message?: string } };
+
+      if (typeof d.error === "string") {
+        message = d.error;
+      } else if (typeof d.error === "object" && d.error?.message) {
+        message = d.error.message;
+      }
+    }
+
+    throw new ApiError(message, res.status, data);
   }
+
   return data as T;
 }
 
@@ -104,13 +110,14 @@ export const api = {
       body: JSON.stringify(body),
     });
   },
+
   login(body: { phone: string; password: string }) {
     return request<AuthResponse>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(body),
     });
   },
-  // Convenience: try login first, fall back to signup if account doesn't exist.
+
   async loginOrSignup(body: {
     phone: string;
     password: string;
@@ -119,7 +126,7 @@ export const api = {
     tier?: "bronze" | "silver" | "gold";
   }) {
     try {
-      return await api.login({ phone: body.phone, password: body.password });
+      return await api.login(body);
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 404)) {
         return await api.signup(body);
